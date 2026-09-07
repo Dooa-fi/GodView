@@ -1,7 +1,23 @@
 {
   "name": "@godview/sdk",
   "version": "0.1.0",
-  "private": true,
+  "description": "Privacy-first, zero-cookie browser analytics SDK for GodView",
+  "author": "Vanssh Dooa",
+  "license": "MIT",
+  "homepage": "https://github.com/Dooa-fi/GodView",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Dooa-fi/GodView.git",
+    "directory": "packages/sdk"
+  },
+  "keywords": [
+    "analytics",
+    "privacy",
+    "telemetry",
+    "cookieless",
+    "cloudflare-workers",
+    "godview"
+  ],
   "type": "module",
   "exports": {
     ".": {

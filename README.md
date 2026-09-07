@@ -161,25 +161,34 @@ analytics.track("signup_completed", { plan: "enterprise" });
 
 ---
 
-## Verification & Quality Gate
+## Features
 
-Run the complete quality gate before every release:
-
-```bash
-npm run check    # TypeScript type verification across all workspaces
-npm run test     # Vitest unit & integration test suites
-npm run build    # Production standalone bundle builds
-```
+- **Privacy-First**: No cookies, no local storage fingerprinting, no raw IP storage. 100% GDPR, PECR, and CCPA compliant.
+- **Edge-Powered Ingestion**: Sub-millisecond latency on Cloudflare's global edge network.
+- **Real-Time Live Intelligence**: 30-second polling pulse showing visitors active in the last 10 minutes with device, browser, and country indicators.
+- **Multi-Site Management**: Add and manage multiple web properties with dynamic origin allowlists directly from the dashboard.
+- **Interactive Multi-Dimensional Filtering**: Click any referrer, country, device, browser, operating system, or page to filter all charts and metrics.
+- **Technology Breakdowns**: Tabbed insights for Devices, Browsers (`Chrome`, `Safari`, `Firefox`, `Edge`), and Operating Systems (`macOS`, `Windows`, `iOS`, `Android`, `Linux`).
+- **Conversion Funnels**: Track multi-step user journeys (e.g. `page_view` → `signup_started` → `signup_completed`) with conversion rates and drop-off percentages.
+- **Engagement Metrics**: Bounce rate and pages per session analytics.
+- **Dual SDK Distribution**: Embedded `<script>` tag served directly or modular `@godview/sdk` npm package.
+- **Turnkey Deployment**: Standalone Next.js container on Railway and Cloudflare Worker via Wrangler.
 
 ---
 
-## Exact Package Versions
+## Contributing
 
-Dependencies are pinned to exact releases with no caret ranges for 100% reproducible builds:
+Contributions are welcome! Please check out [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, testing guidelines, and pull request procedures.
 
-| Component | Pinned Version |
-|---|---|
-| Dashboard | Next.js `16.3.4`, React `19.2.8`, React DOM `19.2.8`, Recharts `3.10.1` |
-| Tooling | TypeScript `5.9.3`, Vitest `5.0.0`, esbuild `0.28.1`, npm `11.15.0` |
-| Edge Worker | Wrangler `4.129.0`, `@cloudflare/workers-types` `4.20260702.1` |
+---
+
+## Security
+
+Please review [SECURITY.md](SECURITY.md) for vulnerability disclosure guidelines and our privacy architecture.
+
+---
+
+## License
+
+GodView is open-source software licensed under the [MIT License](LICENSE).
 
