@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { LiveVisitor, MetricRow, OverviewData, RangeKey } from "@/lib/types";
+import type { AnalyticsFilter, FunnelData, LiveVisitor, MetricRow, OverviewData, RangeKey } from "@/lib/types";
 import type { SiteRecord } from "@godview/shared";
 
 const ranges: Array<{ value: RangeKey; label: string }> = [
@@ -20,9 +20,16 @@ export function Dashboard() {
   const [overview, setOverview] = useState<OverviewData>();
   const [pages, setPages] = useState<MetricRow[]>([]);
   const [events, setEvents] = useState<MetricRow[]>([]);
+  const [funnel, setFunnel] = useState<FunnelData>();
   const [live, setLive] = useState<LiveVisitor[]>([]);
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(true);
+
+  // Dimension Segmentation Filters
+  const [filters, setFilters] = useState<AnalyticsFilter>({});
+
+  // Breakdown Tabs
+  const [techTab, setTechTab] = useState<"devices" | "browsers" | "os">("devices");
 
   // Modals
   const [showSnippet, setShowSnippet] = useState(false);
@@ -72,23 +79,64 @@ export function Dashboard() {
     }
   };
 
+  const handleToggleFilter = (key: keyof AnalyticsFilter, value: string) => {
+    setFilters((prev) => {
+      const next = { ...prev };
+      if (next[key] === value) {
+        delete next[key];
+      } else {
+        next[key] = value;
+      }
+      return next;
+    });
+  };
+
+  const handleClearFilter = (key: keyof AnalyticsFilter) => {
+    setFilters((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const handleClearAllFilters = () => {
+    setFilters({});
+  };
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(undefined);
     try {
-      const siteParam = selectedSiteId ? `&siteId=${encodeURIComponent(selectedSiteId)}` : "";
+      const queryParams = new URLSearchParams();
+      queryParams.set("range", range);
+      if (selectedSiteId) queryParams.set("siteId", selectedSiteId);
+      if (filters.country) queryParams.set("country", filters.country);
+      if (filters.device) queryParams.set("device", filters.device);
+      if (filters.browser) queryParams.set("browser", filters.browser);
+      if (filters.os) queryParams.set("os", filters.os);
+      if (filters.source) queryParams.set("source", filters.source);
+      if (filters.page) queryParams.set("page", filters.page);
+
+      const qs = queryParams.toString();
       const siteParamOnly = selectedSiteId ? `?siteId=${encodeURIComponent(selectedSiteId)}` : "";
 
-      const [summary, pageData, eventData, liveData] = await Promise.all([
-        fetch(`/api/analytics/overview?range=${range}${siteParam}`, { cache: "no-store" }),
-        fetch(`/api/analytics/pages?range=${range}${siteParam}`, { cache: "no-store" }),
-        fetch(`/api/analytics/events?range=${range}${siteParam}`, { cache: "no-store" }),
+      const [summary, pageData, eventData, liveData, funnelData] = await Promise.all([
+        fetch(`/api/analytics/overview?${qs}`, { cache: "no-store" }),
+        fetch(`/api/analytics/pages?${qs}`, { cache: "no-store" }),
+        fetch(`/api/analytics/events?${qs}`, { cache: "no-store" }),
         fetch(`/api/analytics/live${siteParamOnly}`, { cache: "no-store" }),
+        fetch(`/api/analytics/funnels?${qs}`, { cache: "no-store" }),
       ]);
 
-      const payloads = await Promise.all([summary.json(), pageData.json(), eventData.json(), liveData.json()]);
+      const payloads = await Promise.all([
+        summary.json(),
+        pageData.json(),
+        eventData.json(),
+        liveData.json(),
+        funnelData.json(),
+      ]);
 
-      if (![summary, pageData, eventData, liveData].every((response) => response.ok)) {
+      if (![summary, pageData, eventData, liveData, funnelData].every((response) => response.ok)) {
         throw new Error(payloads.find((payload) => payload.error)?.error ?? "Analytics data is unavailable.");
       }
 
@@ -96,12 +144,13 @@ export function Dashboard() {
       setPages(payloads[1].pages ?? []);
       setEvents(payloads[2].events ?? []);
       setLive(payloads[3].visitors ?? []);
+      setFunnel(payloads[4]);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Analytics data is unavailable.");
     } finally {
       setLoading(false);
     }
-  }, [range, selectedSiteId]);
+  }, [range, selectedSiteId, filters]);
 
   useEffect(() => {
     void load();
@@ -421,6 +470,52 @@ analytics.start();`;
         </div>
       ) : null}
 
+      {/* Active Filter Bar */}
+      {Object.keys(filters).length > 0 ? (
+        <section className="filter-bar" aria-label="Active filters">
+          <span className="filter-label">Filtered by:</span>
+          {filters.country ? (
+            <span className="filter-chip">
+              Country: <strong>{filters.country}</strong>
+              <button type="button" onClick={() => handleClearFilter("country")} title="Remove filter">✕</button>
+            </span>
+          ) : null}
+          {filters.device ? (
+            <span className="filter-chip">
+              Device: <strong>{filters.device}</strong>
+              <button type="button" onClick={() => handleClearFilter("device")} title="Remove filter">✕</button>
+            </span>
+          ) : null}
+          {filters.browser ? (
+            <span className="filter-chip">
+              Browser: <strong>{filters.browser}</strong>
+              <button type="button" onClick={() => handleClearFilter("browser")} title="Remove filter">✕</button>
+            </span>
+          ) : null}
+          {filters.os ? (
+            <span className="filter-chip">
+              OS: <strong>{filters.os}</strong>
+              <button type="button" onClick={() => handleClearFilter("os")} title="Remove filter">✕</button>
+            </span>
+          ) : null}
+          {filters.source ? (
+            <span className="filter-chip">
+              Source: <strong>{filters.source}</strong>
+              <button type="button" onClick={() => handleClearFilter("source")} title="Remove filter">✕</button>
+            </span>
+          ) : null}
+          {filters.page ? (
+            <span className="filter-chip">
+              Page: <strong>{filters.page}</strong>
+              <button type="button" onClick={() => handleClearFilter("page")} title="Remove filter">✕</button>
+            </span>
+          ) : null}
+          <button type="button" className="filter-clear-all" onClick={handleClearAllFilters}>
+            Clear all
+          </button>
+        </section>
+      ) : null}
+
       {error ? (
         <section className="notice">
           <strong>Connect your analytics account</strong>
@@ -436,11 +531,13 @@ analytics.start();`;
 
       {overview ? (
         <>
-          <section className="metrics">
+          <section className="metrics six">
             <Metric label="Live now" value={overview.liveVisitors} live />
             <Metric label="Page views" value={overview.pageviews} />
-            <Metric label="Visitors" value={overview.visitors} />
+            <Metric label="Unique Visitors" value={overview.visitors} />
             <Metric label="Sessions" value={overview.sessions} />
+            <Metric label="Bounce Rate" value={overview.bounceRate} suffix="%" />
+            <Metric label="Pages / Session" value={overview.pagesPerSession} isDecimal />
           </section>
 
           <section className="panel traffic">
@@ -484,13 +581,88 @@ analytics.start();`;
           </section>
 
           <section className="grid three">
-            <Breakdown title="Traffic sources" items={overview.sources} />
-            <Breakdown title="Devices" items={overview.devices} />
-            <Breakdown title="Countries" items={overview.countries} />
+            <Breakdown
+              title="Traffic sources"
+              items={overview.sources}
+              onItemClick={(label) => handleToggleFilter("source", label)}
+              activeLabel={filters.source}
+            />
+            <TechnologyBreakdown
+              tab={techTab}
+              onSelectTab={setTechTab}
+              items={
+                techTab === "devices"
+                  ? overview.devices
+                  : techTab === "browsers"
+                  ? overview.browsers
+                  : overview.os
+              }
+              onItemClick={(label) =>
+                handleToggleFilter(
+                  techTab === "devices" ? "device" : techTab === "browsers" ? "browser" : "os",
+                  label
+                )
+              }
+              activeLabel={
+                techTab === "devices"
+                  ? filters.device
+                  : techTab === "browsers"
+                  ? filters.browser
+                  : filters.os
+              }
+            />
+            <Breakdown
+              title="Countries"
+              items={overview.countries}
+              onItemClick={(label) => handleToggleFilter("country", label)}
+              activeLabel={filters.country}
+            />
           </section>
 
+          {funnel && funnel.steps.length > 0 ? (
+            <section className="panel funnel-panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">CONVERSION FUNNEL</p>
+                  <h2>User Journey & Drop-off Analysis</h2>
+                </div>
+                <span className="subtle">Sequential conversion across events</span>
+              </div>
+              <div className="funnel-container">
+                {funnel.steps.map((step, idx) => (
+                  <div className="funnel-step" key={step.name}>
+                    <div className="funnel-step-header">
+                      <div className="funnel-step-index">{idx + 1}</div>
+                      <div className="funnel-step-info">
+                        <strong className="funnel-step-name">{step.name}</strong>
+                        <span className="funnel-step-count">{number.format(step.count)} visitors</span>
+                      </div>
+                      <div className="funnel-step-metrics">
+                        <span className="funnel-conversion-rate">{step.conversionRate}%</span>
+                        {idx > 0 && step.dropoffRate > 0 ? (
+                          <span className="funnel-dropoff-badge">-{step.dropoffRate}% drop</span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="funnel-bar-track">
+                      <div
+                        className="funnel-bar-fill"
+                        style={{ width: `${Math.max(step.conversionRate, 4)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           <section className="grid two">
-            <Ranked title="Top pages" items={pages} />
+            <Ranked
+              title="Top pages"
+              items={pages}
+              onItemClick={(label) => handleToggleFilter("page", label)}
+              activeLabel={filters.page}
+            />
             <Ranked title="Events" items={events} />
           </section>
 
@@ -526,33 +698,93 @@ analytics.start();`;
   );
 }
 
-function Metric({ label, value, live = false }: { label: string; value: number; live?: boolean }) {
+function Metric({
+  label,
+  value,
+  live = false,
+  suffix = "",
+  isDecimal = false,
+}: {
+  label: string;
+  value: number;
+  live?: boolean;
+  suffix?: string;
+  isDecimal?: boolean;
+}) {
   return (
     <article className="metric">
       <p>
         {live ? <span className="pulse" /> : null}
         {label}
       </p>
-      <strong>{number.format(value)}</strong>
+      <strong>
+        {isDecimal ? value.toFixed(1) : number.format(value)}
+        {suffix}
+      </strong>
     </article>
   );
 }
 
-function Breakdown({ title, items }: { title: string; items: MetricRow[] }) {
+function TechnologyBreakdown({
+  tab,
+  onSelectTab,
+  items,
+  onItemClick,
+  activeLabel,
+}: {
+  tab: "devices" | "browsers" | "os";
+  onSelectTab: (tab: "devices" | "browsers" | "os") => void;
+  items: MetricRow[];
+  onItemClick?: (label: string) => void;
+  activeLabel?: string;
+}) {
   const total = items.reduce((sum, item) => sum + item.value, 0);
   return (
     <section className="panel breakdown">
-      <h2>{title}</h2>
+      <div className="breakdown-header-with-tabs">
+        <h2>Technology</h2>
+        <div className="subtabs">
+          <button
+            type="button"
+            className={tab === "devices" ? "active" : ""}
+            onClick={() => onSelectTab("devices")}
+          >
+            Devices
+          </button>
+          <button
+            type="button"
+            className={tab === "browsers" ? "active" : ""}
+            onClick={() => onSelectTab("browsers")}
+          >
+            Browsers
+          </button>
+          <button
+            type="button"
+            className={tab === "os" ? "active" : ""}
+            onClick={() => onSelectTab("os")}
+          >
+            OS
+          </button>
+        </div>
+      </div>
       {items.length ? (
-        items.map((item) => (
-          <div className="bar-row" key={item.label}>
-            <span>{item.label}</span>
-            <div>
-              <i style={{ width: `${total ? Math.max((item.value / total) * 100, 3) : 0}%` }} />
+        items.map((item) => {
+          const isSelected = activeLabel === item.label;
+          return (
+            <div
+              className={`bar-row ${onItemClick ? "clickable-row" : ""} ${isSelected ? "selected-row" : ""}`}
+              key={item.label}
+              onClick={() => onItemClick?.(item.label)}
+              title={onItemClick ? `Filter by ${item.label}` : undefined}
+            >
+              <span>{item.label}</span>
+              <div>
+                <i style={{ width: `${total ? Math.max((item.value / total) * 100, 3) : 0}%` }} />
+              </div>
+              <b>{total ? `${Math.round((item.value / total) * 100)}%` : "0%"}</b>
             </div>
-            <b>{total ? `${Math.round((item.value / total) * 100)}%` : "0%"}</b>
-          </div>
-        ))
+          );
+        })
       ) : (
         <p className="empty">No data yet.</p>
       )}
@@ -560,18 +792,76 @@ function Breakdown({ title, items }: { title: string; items: MetricRow[] }) {
   );
 }
 
-function Ranked({ title, items }: { title: string; items: MetricRow[] }) {
+function Breakdown({
+  title,
+  items,
+  onItemClick,
+  activeLabel,
+}: {
+  title: string;
+  items: MetricRow[];
+  onItemClick?: (label: string) => void;
+  activeLabel?: string;
+}) {
+  const total = items.reduce((sum, item) => sum + item.value, 0);
+  return (
+    <section className="panel breakdown">
+      <h2>{title}</h2>
+      {items.length ? (
+        items.map((item) => {
+          const isSelected = activeLabel === item.label;
+          return (
+            <div
+              className={`bar-row ${onItemClick ? "clickable-row" : ""} ${isSelected ? "selected-row" : ""}`}
+              key={item.label}
+              onClick={() => onItemClick?.(item.label)}
+              title={onItemClick ? `Filter by ${item.label}` : undefined}
+            >
+              <span>{item.label}</span>
+              <div>
+                <i style={{ width: `${total ? Math.max((item.value / total) * 100, 3) : 0}%` }} />
+              </div>
+              <b>{total ? `${Math.round((item.value / total) * 100)}%` : "0%"}</b>
+            </div>
+          );
+        })
+      ) : (
+        <p className="empty">No data yet.</p>
+      )}
+    </section>
+  );
+}
+
+function Ranked({
+  title,
+  items,
+  onItemClick,
+  activeLabel,
+}: {
+  title: string;
+  items: MetricRow[];
+  onItemClick?: (label: string) => void;
+  activeLabel?: string;
+}) {
   return (
     <section className="panel ranked">
       <h2>{title}</h2>
       {items.length ? (
         <ol>
-          {items.map((item) => (
-            <li key={item.label}>
-              <span>{item.label}</span>
-              <b>{number.format(item.value)}</b>
-            </li>
-          ))}
+          {items.map((item) => {
+            const isSelected = activeLabel === item.label;
+            return (
+              <li
+                key={item.label}
+                className={`${onItemClick ? "clickable-item" : ""} ${isSelected ? "selected-item" : ""}`}
+                onClick={() => onItemClick?.(item.label)}
+                title={onItemClick ? `Filter by ${item.label}` : undefined}
+              >
+                <span>{item.label}</span>
+                <b>{number.format(item.value)}</b>
+              </li>
+            );
+          })}
         </ol>
       ) : (
         <p className="empty">No data yet.</p>
