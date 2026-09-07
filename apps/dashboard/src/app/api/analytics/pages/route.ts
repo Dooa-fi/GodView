@@ -3,6 +3,10 @@ import { errorResponse } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
-  try { return Response.json({ pages: await getPages(parseRange(new URL(request.url).searchParams.get("range"))) }); }
-  catch (error) { return errorResponse(error); }
+  try {
+    const url = new URL(request.url);
+    const range = parseRange(url.searchParams.get("range"));
+    const siteId = url.searchParams.get("siteId");
+    return Response.json({ pages: await getPages(range, siteId) });
+  } catch (error) { return errorResponse(error); }
 }

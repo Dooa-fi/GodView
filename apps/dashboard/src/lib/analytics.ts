@@ -18,18 +18,31 @@ export function parseRange(value: string | null | undefined): RangeKey {
   return value === "24h" || value === "30d" || value === "7d" ? value : "7d";
 }
 
+export function defaultSiteId(): string {
+  return process.env.GODVIEW_SITE_ID || process.env.OPENPULSE_SITE_ID || "site_primary";
+}
+
+export function resolveSiteId(requested?: string | null): string {
+  if (requested) {
+    const trimmed = requested.trim();
+    if (/^[A-Za-z0-9_.-]{1,64}$/.test(trimmed)) return trimmed;
+  }
+  return defaultSiteId();
+}
+
 export function rangeLabel(range: RangeKey) { return RANGES[range].label; }
 
-export async function getOverview(range: RangeKey): Promise<OverviewData> {
+export async function getOverview(range: RangeKey, requestedSiteId?: string | null): Promise<OverviewData> {
+  const siteId = resolveSiteId(requestedSiteId);
   if (isDemoMode()) return demoOverview(range);
-  const where = whereFor(range);
+  const where = whereFor(range, siteId);
   const [summaryRows, trafficRows, sourceRows, deviceRows, countryRows, liveRows] = await Promise.all([
     sql(`SELECT SUM(_sample_interval) AS pageviews, uniqExact(blob3) AS visitors, uniqExact(blob4) AS sessions FROM ${dataset()} WHERE ${where} AND blob1 = 'page_view'`),
     sql(`SELECT toStartOfInterval(timestamp, INTERVAL 1 DAY) AS date, SUM(_sample_interval) AS pageviews, uniqExact(blob3) AS visitors FROM ${dataset()} WHERE ${where} AND blob1 = 'page_view' GROUP BY date ORDER BY date`),
     sql(`SELECT if(blob10 != '', blob10, if(blob5 != '', blob5, 'Direct')) AS label, SUM(_sample_interval) AS value FROM ${dataset()} WHERE ${where} AND blob1 = 'page_view' GROUP BY label ORDER BY value DESC LIMIT 8`),
     sql(`SELECT if(blob6 = '', 'Unknown', blob6) AS label, SUM(_sample_interval) AS value FROM ${dataset()} WHERE ${where} AND blob1 = 'page_view' GROUP BY label ORDER BY value DESC LIMIT 8`),
     sql(`SELECT if(blob9 = '', 'Unknown', blob9) AS label, SUM(_sample_interval) AS value FROM ${dataset()} WHERE ${where} AND blob1 = 'page_view' GROUP BY label ORDER BY value DESC LIMIT 8`),
-    sql(`SELECT uniqExact(blob4) AS value FROM ${dataset()} WHERE index1 = ${stringLiteral(config().siteId)} AND timestamp >= NOW() - INTERVAL 10 MINUTE`),
+    sql(`SELECT uniqExact(blob4) AS value FROM ${dataset()} WHERE index1 = ${stringLiteral(siteId)} AND timestamp >= NOW() - INTERVAL 10 MINUTE`),
   ]);
   const summary = summaryRows[0] ?? {};
   return {
@@ -45,19 +58,22 @@ export async function getOverview(range: RangeKey): Promise<OverviewData> {
   };
 }
 
-export async function getPages(range: RangeKey): Promise<MetricRow[]> {
+export async function getPages(range: RangeKey, requestedSiteId?: string | null): Promise<MetricRow[]> {
+  const siteId = resolveSiteId(requestedSiteId);
   if (isDemoMode()) return demoPages;
-  return metrics(await sql(`SELECT blob2 AS label, SUM(_sample_interval) AS value FROM ${dataset()} WHERE ${whereFor(range)} AND blob1 = 'page_view' GROUP BY label ORDER BY value DESC LIMIT 20`));
+  return metrics(await sql(`SELECT blob2 AS label, SUM(_sample_interval) AS value FROM ${dataset()} WHERE ${whereFor(range, siteId)} AND blob1 = 'page_view' GROUP BY label ORDER BY value DESC LIMIT 20`));
 }
 
-export async function getEvents(range: RangeKey): Promise<MetricRow[]> {
+export async function getEvents(range: RangeKey, requestedSiteId?: string | null): Promise<MetricRow[]> {
+  const siteId = resolveSiteId(requestedSiteId);
   if (isDemoMode()) return demoEvents;
-  return metrics(await sql(`SELECT blob1 AS label, SUM(_sample_interval) AS value FROM ${dataset()} WHERE ${whereFor(range)} GROUP BY label ORDER BY value DESC LIMIT 20`));
+  return metrics(await sql(`SELECT blob1 AS label, SUM(_sample_interval) AS value FROM ${dataset()} WHERE ${whereFor(range, siteId)} GROUP BY label ORDER BY value DESC LIMIT 20`));
 }
 
-export async function getLiveVisitors(): Promise<LiveVisitor[]> {
+export async function getLiveVisitors(requestedSiteId?: string | null): Promise<LiveVisitor[]> {
+  const siteId = resolveSiteId(requestedSiteId);
   if (isDemoMode()) return demoLive;
-  const rows = await sql(`SELECT if(blob9 = '', 'Unknown', blob9) AS country, if(blob6 = '', 'Unknown', blob6) AS device, if(blob7 = '', 'Unknown', blob7) AS browser, blob2 AS page, max(timestamp) AS lastSeen FROM ${dataset()} WHERE index1 = ${stringLiteral(config().siteId)} AND timestamp >= NOW() - INTERVAL 10 MINUTE GROUP BY country, device, browser, page, blob4 ORDER BY lastSeen DESC LIMIT 50`);
+  const rows = await sql(`SELECT if(blob9 = '', 'Unknown', blob9) AS country, if(blob6 = '', 'Unknown', blob6) AS device, if(blob7 = '', 'Unknown', blob7) AS browser, blob2 AS page, max(timestamp) AS lastSeen FROM ${dataset()} WHERE index1 = ${stringLiteral(siteId)} AND timestamp >= NOW() - INTERVAL 10 MINUTE GROUP BY country, device, browser, page, blob4 ORDER BY lastSeen DESC LIMIT 50`);
   return rows.map((row) => ({ country: stringValue(row.country, "Unknown"), device: stringValue(row.device, "Unknown"), browser: stringValue(row.browser, "Unknown"), page: stringValue(row.page, "/"), lastSeen: dateValue(row.lastSeen) }));
 }
 
@@ -72,7 +88,7 @@ function config(): Config {
 }
 
 function dataset() { return config().dataset; }
-function whereFor(range: RangeKey) { return `index1 = ${stringLiteral(config().siteId)} AND timestamp >= NOW() - INTERVAL ${RANGES[range].interval}`; }
+function whereFor(range: RangeKey, siteId: string) { return `index1 = ${stringLiteral(siteId)} AND timestamp >= NOW() - INTERVAL ${RANGES[range].interval}`; }
 function stringLiteral(value: string) { return `'${value.replaceAll("'", "''")}'`; }
 
 async function sql(query: string): Promise<Row[]> {
