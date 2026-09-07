@@ -1,0 +1,21 @@
+{
+  "name": "godview",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "check": "npm run check --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "dev:collector": "npm run dev --workspace=@godview/collector",
+    "deploy:collector": "npm run deploy --workspace=@godview/collector",
+    "dev:dashboard": "npm run dev --workspace=@godview/dashboard"
+  },
+  "packageManager": "npm@11.15.0",
+  "engines": {
+    "node": "22.16.x"
+  }
+}

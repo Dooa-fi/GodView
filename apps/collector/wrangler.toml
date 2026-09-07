@@ -1,0 +1,8 @@
+name = "godview-collector"
+main = "src/index.ts"
+compatibility_date = "2026-09-07"
+
+[[analytics_engine_datasets]]
+binding = "EVENTS"
+dataset = "GODVIEW_EVENTS"
+

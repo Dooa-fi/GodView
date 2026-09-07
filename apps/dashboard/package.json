@@ -1,0 +1,26 @@
+{
+  "name": "@godview/dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build && mkdir -p .next/standalone/apps/dashboard/.next && cp -r .next/static .next/standalone/apps/dashboard/.next/ && (cp -r public .next/standalone/apps/dashboard/ 2>/dev/null || true)",
+    "start": "node .next/standalone/apps/dashboard/server.js",
+    "check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@godview/shared": "0.1.0",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "recharts": "3.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "typescript": "5.9.3",
+    "vitest": "5.0.0"
+  }
+}

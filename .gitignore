@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.next/
+.wrangler/
+.dev.vars
+.env.local
+.env.*.local
+*.log
+*.tsbuildinfo
+.DS_Store
+_sites_old/
+*root_old*
+*node_modules_old*
+.commandcode/
+
