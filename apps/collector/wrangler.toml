@@ -6,3 +6,11 @@ compatibility_date = "2026-09-07"
 binding = "EVENTS"
 dataset = "GODVIEW_EVENTS"
 
+# Optional: Enable KV for dynamic multi-site management
+# Run: npx wrangler kv:namespace create SITES
+# Then add the generated ID below:
+# [[kv_namespaces]]
+# binding = "SITES"
+# id = "replace-with-your-kv-namespace-id"
+
+

@@ -30,11 +30,14 @@ export function Dashboard() {
   const [snippetTab, setSnippetTab] = useState<"script" | "npm">("script");
   const [copied, setCopied] = useState(false);
 
-  // Form State
   const [newSiteName, setNewSiteName] = useState("");
   const [newSiteOrigins, setNewSiteOrigins] = useState("");
   const [addSiteLoading, setAddSiteLoading] = useState(false);
   const [addSiteError, setAddSiteError] = useState<string>();
+
+  // Test Ping & Site Actions
+  const [testPingLoading, setTestPingLoading] = useState(false);
+  const [testPingStatus, setTestPingStatus] = useState<string>();
 
   // Fetch site list on mount
   useEffect(() => {
@@ -151,6 +154,73 @@ export function Dashboard() {
       setAddSiteError(err instanceof Error ? err.message : "Failed to create site.");
     } finally {
       setAddSiteLoading(false);
+    }
+  };
+
+  const handleSendTestPing = async () => {
+    if (!selectedSiteId) return;
+    setTestPingLoading(true);
+    setTestPingStatus(undefined);
+    try {
+      const pingUrl = collectorEndpoint
+        ? `${collectorEndpoint}/v1/events`
+        : "/v1/events";
+      const payload = {
+        events: [
+          {
+            event: "page_view",
+            timestamp: new Date().toISOString(),
+            siteId: selectedSiteId,
+            sessionId: `session_${Date.now()}`,
+            visitorId: `visitor_${Date.now()}`,
+            context: {
+              page: "/test-preview",
+              url: `${typeof window !== "undefined" ? window.location.origin : "https://example.com"}/test-preview`,
+              device: "desktop" as const,
+              browser: "Chrome",
+              os: "macOS",
+            },
+            properties: { test: true },
+          },
+        ],
+      };
+      const res = await fetch(pingUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        setTestPingStatus("Test event sent! Refreshing metrics...");
+        setTimeout(() => {
+          void load();
+          setTestPingStatus(undefined);
+        }, 2000);
+      } else {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        setTestPingStatus(data?.error ? `Error: ${data.error}` : "Collector rejected test event.");
+      }
+    } catch {
+      setTestPingStatus("Could not reach collector. Check your endpoint URL.");
+    } finally {
+      setTestPingLoading(false);
+    }
+  };
+
+  const handleDeleteSite = async (siteId: string) => {
+    if (!confirm(`Are you sure you want to remove site "${currentSite?.name || siteId}"?`)) return;
+    try {
+      const res = await fetch(`/api/sites?id=${encodeURIComponent(siteId)}`, { method: "DELETE" });
+      if (res.ok) {
+        setSites((prev) => prev.filter((s) => s.id !== siteId));
+        const remaining = sites.filter((s) => s.id !== siteId);
+        if (remaining.length > 0) {
+          handleSelectSite(remaining[0].id);
+        } else {
+          setSelectedSiteId("");
+        }
+      }
+    } catch {
+      alert("Failed to delete site.");
     }
   };
 
@@ -273,6 +343,31 @@ analytics.start();`;
           <pre>
             <code>{snippetTab === "script" ? snippetCode : npmCode}</code>
           </pre>
+          <div className="snippet-footer">
+            <div className="site-details-info">
+              <span>Allowed Origins: <strong>{currentSite?.origins.join(", ") || "Global / Open"}</strong></span>
+              {testPingStatus ? <span className="test-ping-msg">{testPingStatus}</span> : null}
+            </div>
+            <div className="snippet-footer-actions">
+              <button
+                type="button"
+                className="btn-test-ping"
+                onClick={handleSendTestPing}
+                disabled={testPingLoading}
+              >
+                {testPingLoading ? "Sending Ping..." : "Send Test Event"}
+              </button>
+              {sites.length > 1 ? (
+                <button
+                  type="button"
+                  className="btn-delete-site"
+                  onClick={() => handleDeleteSite(selectedSiteId)}
+                >
+                  Delete Site
+                </button>
+              ) : null}
+            </div>
+          </div>
         </section>
       ) : null}
 

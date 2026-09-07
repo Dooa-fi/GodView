@@ -1,4 +1,4 @@
-import { collectorUrl, createSite, listSites } from "@/lib/sites";
+import { collectorUrl, createSite, deleteSite, listSites } from "@/lib/sites";
 import { errorResponse } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -18,5 +18,15 @@ export async function POST(request: Request) {
     if (!name || name.length > 100) return Response.json({ error: "Expected a site name of 1–100 characters." }, { status: 400 });
     if (origins.length === 0 || origins.length > 20) return Response.json({ error: "Expected 1–20 allowed origins." }, { status: 400 });
     return Response.json({ site: await createSite(name, origins) }, { status: 201 });
+  } catch (error) { return errorResponse(error); }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const url = new URL(request.url);
+    const id = url.searchParams.get("id");
+    if (!id) return Response.json({ error: "Site ID is required." }, { status: 400 });
+    const success = await deleteSite(id);
+    return Response.json({ ok: success, deleted: id });
   } catch (error) { return errorResponse(error); }
 }

@@ -49,6 +49,16 @@ export async function createSite(name: string, origins: string[]): Promise<SiteR
   return payload.site;
 }
 
+export async function deleteSite(siteId: string): Promise<boolean> {
+  if (!hasCollectorConfig()) {
+    const idx = inMemorySites.findIndex((s) => s.id === siteId);
+    if (idx !== -1) inMemorySites.splice(idx, 1);
+    return true;
+  }
+  const response = await sitesRequest(`/v1/sites?id=${encodeURIComponent(siteId)}`, { method: "DELETE" });
+  return response.ok;
+}
+
 async function sitesRequest(path: string, init?: RequestInit): Promise<Response> {
   const adminToken = process.env.GODVIEW_ADMIN_TOKEN || process.env.OPENPULSE_ADMIN_TOKEN;
   const url = collectorUrl();

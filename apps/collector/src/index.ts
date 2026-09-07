@@ -117,6 +117,14 @@ async function handleSites(request: Request, env: Env, cors: Headers): Promise<R
     return json({ site }, cors, 201);
   }
 
+  if (request.method === "DELETE") {
+    const url = new URL(request.url);
+    const siteId = url.searchParams.get("id");
+    if (!siteId || siteId.length > 64) return json({ error: "Valid site id required" }, cors, 400);
+    await sites.delete(`${SITE_KEY_PREFIX}${siteId}`);
+    return json({ ok: true, deleted: siteId }, cors);
+  }
+
   return json({ error: "Not found" }, cors, 404);
 }
 
@@ -183,7 +191,7 @@ function getAllowedCustomEvents(env: Env): unknown[] {
 // origin authorization happens per site in handleEvents.
 function corsHeaders(origin: string | null) {
   const headers = new Headers({
-    "access-control-allow-methods": "POST, OPTIONS",
+    "access-control-allow-methods": "POST, OPTIONS, GET, DELETE",
     "access-control-allow-headers": "content-type, authorization",
     "content-type": "application/json",
     "x-content-type-options": "nosniff",
